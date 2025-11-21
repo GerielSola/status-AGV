@@ -50,6 +50,17 @@
             flex-wrap: wrap;
             margin-bottom: 10px;
         }
+
+        .header-logo {
+            max-width: 200px;
+            height: auto;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+            /* Garante que a imagem mantenha suas proporções */
+            object-fit: contain;
+            /* Torna a imagem responsiva */
+            width: 100%;
+            height: auto;
+        }
         
         .header-text {
             flex: 1;
@@ -378,6 +389,7 @@
     <div class="container">
         <header>
             <div class="header-container">
+                <img src="Logo Selettra.png" alt="Selettra Logo" class="header-logo">
                 <div class="header-text">             
                     <h1>🏭 Sistema de Monitoramento de AGVs</h1>
                     <p>Selettra - Status em Tempo Real</p>
