@@ -331,8 +331,7 @@
     <div class="container">
         <header>
             <div class="header-container">
-                <!-- Imagem comentada temporariamente - adicione o arquivo Logo Selettra.png depois -->
-                <!-- <img src="Logo Selettra.png" alt="Selettra Logo" class="header-logo"> -->
+                <img src="Logo Selettra.png" alt="Selettra Logo" class="header-logo">
                 <div class="header-text">             
                     <h1>Sistema de Monitoramento de AGVs</h1>
                     <p>Status atualizado dos AGV's</p>
@@ -357,6 +356,22 @@
                 <button class="close-btn" id="closeModal">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="status-section">
+                    <h3>Dados Gerais</h3>
+                    <table id="geralTable">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Status (%)</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Conteúdo será preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
                 <div class="status-section">
                     <h3>Status Mecânico</h3>
                     <table id="mecanicoTable">
@@ -444,6 +459,14 @@
                 // Para AGV04, usamos os dados do relatório corrigidos
                 if (i === 4) {
                     agvData[agvId] = {
+                        geral: {
+                            "ACABAMENTO": { status: "40%", observacoes: "FALTA ADESIVOS" },
+                            "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "ADESIVOS": { status: "0%", observacoes: "" },
+                            "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "RASPADORES": { status: "0%", observacoes: "" },
+                            "BATERIA": { status: "0%", observacoes: "" }
+                        },
                         mecanico: {
                             "CJ DE TRAÇÃO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
                             "RODIZIO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
@@ -467,6 +490,14 @@
                 } else {
                     // Para outros AGVs, inicializamos com valores padrão
                     agvData[agvId] = {
+                        geral: {
+                            "ACABAMENTO": { status: "0%", observacoes: "" },
+                            "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "ADESIVOS": { status: "0%", observacoes: "" },
+                            "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "RASPADORES": { status: "0%", observacoes: "" },
+                            "BATERIA": { status: "0%", observacoes: "" }
+                        },
                         mecanico: {
                             "CJ DE TRAÇÃO": { status: "0%", observacoes: "" },
                             "RODIZIO": { status: "0%", observacoes: "" },
@@ -494,15 +525,32 @@
             loadFromLocalStorage();
         }
         
-        // Calcula o progresso geral baseado no status mecânico
+        // Calcula o progresso geral baseado no status mecânico, elétrico e dados gerais
         function calculateOverallProgress(agvId) {
             const mecanico = agvData[agvId].mecanico;
+            const eletrico = agvData[agvId].eletrico;
+            const geral = agvData[agvId].geral;
+            
             let total = 0;
             let count = 0;
             
+            // Soma mecânico
             for (const item in mecanico) {
-                // Converte "95%" para 95
                 const value = parseInt(mecanico[item].status);
+                total += value;
+                count++;
+            }
+            
+            // Soma elétrico
+            for (const item in eletrico) {
+                const value = parseInt(eletrico[item].status);
+                total += value;
+                count++;
+            }
+            
+            // Soma dados gerais
+            for (const item in geral) {
+                const value = parseInt(geral[item].status);
                 total += value;
                 count++;
             }
@@ -542,6 +590,7 @@
                         <div class="status-details">
                             <div><strong>Mecânico:</strong> ${getMecanicoSummary(agvId)}</div>
                             <div><strong>Elétrico:</strong> ${getEletricoSummary(agvId)}</div>
+                            <div><strong>Dados Gerais:</strong> ${getGeralSummary(agvId)}</div>
                         </div>
                     </div>
                 `;
@@ -578,15 +627,48 @@
             
             return `${completed}/${total} concluídos`;
         }
+
+        // Retorna um resumo dos dados gerais
+        function getGeralSummary(agvId) {
+            const geral = agvData[agvId].geral;
+            let completed = 0;
+            let total = 0;
+            
+            for (const item in geral) {
+                if (geral[item].status === "100%") completed++;
+                total++;
+            }
+            
+            return `${completed}/${total} concluídos`;
+        }
         
         // Abre o modal com os detalhes do AGV
         function openModal(agvId) {
             const modal = document.getElementById('agvModal');
             const title = document.getElementById('modalTitle');
+            const geralTable = document.getElementById('geralTable').querySelector('tbody');
             const mecanicoTable = document.getElementById('mecanicoTable').querySelector('tbody');
             const eletricoTable = document.getElementById('eletricoTable').querySelector('tbody');
             
             title.textContent = `Detalhes do ${agvId}`;
+            
+            // Preenche a tabela de dados gerais com selects
+            geralTable.innerHTML = '';
+            for (const item in agvData[agvId].geral) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item}</td>
+                    <td>
+                        <select data-agv="${agvId}" data-type="geral" data-item="${item}" data-field="status" ${!isAuthenticated ? 'disabled' : ''}>
+                            ${generatePercentageOptions(agvData[agvId].geral[item].status)}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" value="${agvData[agvId].geral[item].observacoes}" data-agv="${agvId}" data-type="geral" data-item="${item}" data-field="observacoes" ${!isAuthenticated ? 'disabled' : ''}>
+                    </td>
+                `;
+                geralTable.appendChild(row);
+            }
             
             // Preenche a tabela mecânica com selects
             mecanicoTable.innerHTML = '';
@@ -680,7 +762,28 @@
         function loadFromLocalStorage() {
             const savedData = localStorage.getItem('agvData');
             if (savedData) {
-                agvData = JSON.parse(savedData);
+                const parsedData = JSON.parse(savedData);
+                
+                // Para cada AGV, garante que a estrutura de dados gerais exista
+                for (let i = 1; i <= 12; i++) {
+                    const agvId = `AGV${i.toString().padStart(2, '0')}`;
+                    
+                    if (parsedData[agvId]) {
+                        // Se não existir a estrutura de dados gerais, cria
+                        if (!parsedData[agvId].geral) {
+                            parsedData[agvId].geral = {
+                                "ACABAMENTO": { status: "0%", observacoes: "" },
+                                "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                                "ADESIVOS": { status: "0%", observacoes: "" },
+                                "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                                "RASPADORES": { status: "0%", observacoes: "" },
+                                "BATERIA": { status: "0%", observacoes: "" }
+                            };
+                        }
+                    }
+                }
+                
+                agvData = parsedData;
             }
         }
         
