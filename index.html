@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status dos AGVs</title>
+    <title>Status dos AGVs - Selettra</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -49,15 +49,6 @@
             gap: 20px;
             flex-wrap: wrap;
             margin-bottom: 10px;
-        }
-        
-        .header-logo {
-            max-width: 200px;
-            height: auto;
-            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
-            object-fit: contain;
-            width: 100%;
-            height: auto;
         }
         
         .header-text {
@@ -325,16 +316,71 @@
             margin-top: 5px;
             display: none;
         }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+
+        .connection-status-section {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #c8e6c9;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 600;
+            z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            background-color: var(--success-color);
+        }
+
+        .toast.error {
+            background-color: var(--danger-color);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <div class="header-container">
-                <img src="Logo Selettra.png" alt="Selettra Logo" class="header-logo">
                 <div class="header-text">             
-                    <h1>Sistema de Monitoramento de AGVs</h1>
-                    <p>Status atualizado dos AGV's</p>
+                    <h1>🏭 Sistema de Monitoramento de AGVs</h1>
+                    <p>Selettra - Status em Tempo Real</p>
                 </div>
             </div>
             <div class="auth-section">
@@ -342,9 +388,22 @@
                 <button class="btn-auth" id="loginBtn">Login</button>
             </div>
         </header>
+
+        <!-- Seção para status da conexão -->
+        <div class="connection-status-section">
+            <h3>🔗 Status da Conexão</h3>
+            <div id="connectionStatus">Conectando à base de dados...</div>
+        </div>
         
         <div class="agv-grid" id="agvGrid">
-            <!-- Os cards dos AGVs serão gerados dinamicamente aqui -->
+            <div style="text-align: center; grid-column: 1 / -1;">
+                <div class="loading" id="loadingIndicator"></div>
+                <span>Conectando à base de dados...</span>
+            </div>
+        </div>
+
+        <div class="last-update" id="lastUpdate">
+            ⏰ Última atualização: --
         </div>
     </div>
     
@@ -357,7 +416,7 @@
             </div>
             <div class="modal-body">
                 <div class="status-section">
-                    <h3>Dados Gerais</h3>
+                    <h3>📊 Dados Gerais</h3>
                     <table id="geralTable">
                         <thead>
                             <tr>
@@ -373,7 +432,7 @@
                 </div>
                 
                 <div class="status-section">
-                    <h3>Status Mecânico</h3>
+                    <h3>🔧 Status Mecânico</h3>
                     <table id="mecanicoTable">
                         <thead>
                             <tr>
@@ -389,7 +448,7 @@
                 </div>
                 
                 <div class="status-section">
-                    <h3>Status Elétrico</h3>
+                    <h3>⚡ Status Elétrico</h3>
                     <table id="eletricoTable">
                         <thead>
                             <tr>
@@ -405,8 +464,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="saveChanges">Salvar Alterações</button>
-                <button class="btn" id="cancelChanges">Cancelar</button>
+                <button class="btn btn-primary" id="saveChanges">💾 Salvar Alterações</button>
+                <button class="btn" id="cancelChanges">❌ Cancelar</button>
             </div>
         </div>
     </div>
@@ -415,7 +474,7 @@
     <div class="modal" id="authModal">
         <div class="modal-content auth-modal">
             <div class="modal-header">
-                <h2>Autenticação</h2>
+                <h2>🔐 Autenticação</h2>
                 <button class="close-btn" id="closeAuthModal">&times;</button>
             </div>
             <div class="auth-form">
@@ -425,107 +484,217 @@
                     <div class="error-message" id="authError">Senha incorreta. Tente novamente.</div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" id="confirmAuth">Confirmar</button>
-                    <button class="btn" id="cancelAuth">Cancelar</button>
+                    <button class="btn btn-primary" id="confirmAuth">✅ Confirmar</button>
+                    <button class="btn" id="cancelAuth">❌ Cancelar</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Toast para mensagens -->
+    <div class="toast" id="toast"></div>
+
     <script>
-        // Dados iniciais baseados no relatório fornecido
+        // Variáveis globais
         let agvData = {};
         let isAuthenticated = false;
         const CORRECT_PASSWORD = "fab@123";
-        
-        // Função para gerar opções de porcentagem
-        function generatePercentageOptions(currentValue) {
-            const percentages = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"];
-            let options = '';
+        let jsonBinConfig = {
+            binId: '',
+            masterKey: ''
+        };
+
+        // Configurações automáticas pré-definidas
+        const AUTO_CONFIGS = [
+            {
+                binId: '6920949bd0ea881f40f71c2d',
+                masterKey: '$2a$10$oOSBjJ1qjrDZiki1o/JCaOF9aGmO23rT8K/ky5wM/b/xwxOgdnxHa',
+                name: 'Configuração Principal'
+            }
+        ];
+
+        // Função para mostrar toast
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
             
-            percentages.forEach(p => {
-                const selected = p === currentValue ? 'selected' : '';
-                options += `<option value="${p}" ${selected}>${p}</option>`;
-            });
-            
-            return options;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
         }
-        
-        // Inicializa os dados para todos os AGVs (01 a 12)
-        function initializeData() {
-            for (let i = 1; i <= 12; i++) {
-                const agvId = `AGV${i.toString().padStart(2, '0')}`;
+
+        // Função para atualizar o status da conexão
+        function updateConnectionStatus(message, type = 'info') {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.innerHTML = message;
+            
+            if (type === 'success') {
+                statusElement.style.color = 'green';
+                statusElement.parentElement.style.background = '#e8f5e9';
+                statusElement.parentElement.style.borderColor = '#c8e6c9';
+            } else if (type === 'error') {
+                statusElement.style.color = 'red';
+                statusElement.parentElement.style.background = '#ffebee';
+                statusElement.parentElement.style.borderColor = '#ffcdd2';
+            } else {
+                statusElement.style.color = 'blue';
+                statusElement.parentElement.style.background = '#e3f2fd';
+                statusElement.parentElement.style.borderColor = '#bbdefb';
+            }
+        }
+
+        // Função para conectar automaticamente (chamada na inicialização)
+        async function autoConnect() {
+            updateConnectionStatus('🔍 Conectando à base de dados...', 'info');
+            showLoading(true);
+            
+            // Tentar cada configuração automaticamente
+            for (const config of AUTO_CONFIGS) {
+                updateConnectionStatus(`🔍 Tentando conectar...`, 'info');
                 
-                // Para AGV04, usamos os dados do relatório corrigidos
-                if (i === 4) {
-                    agvData[agvId] = {
-                        geral: {
-                            "ACABAMENTO": { status: "40%", observacoes: "FALTA ADESIVOS" },
-                            "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                            "ADESIVOS": { status: "0%", observacoes: "" },
-                            "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                            "RASPADORES": { status: "0%", observacoes: "" },
-                            "BATERIA": { status: "0%", observacoes: "" }
-                        },
-                        mecanico: {
-                            "CJ DE TRAÇÃO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
-                            "RODIZIO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
-                            "CJ DE APOIO CHASSIS CHIFRE": { status: "0%", observacoes: "" },
-                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "COLOCADA SEM PINTAR" },
-                            "TAMPA TRASEIRA": { status: "0%", observacoes: "COLOCADA SEM PINTAR" },
-                            "TAMPA DE ACABAMENTO": { status: "0%", observacoes: "" }
-                        },
-                        eletrico: {
-                            "CJ TRAÇÃO": { status: "0%", observacoes: "" },
-                            "PAINEL DIANTEIRO": { status: "70%", observacoes: "" },
-                            "PAINEL TRASEIRO": { status: "100%", observacoes: "" },
-                            "TAMPA DIANTEIRA": { status: "60%", observacoes: "" },
-                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
-                            "POTENCIA": { status: "100%", observacoes: "" },
-                            "CHICOTE": { status: "90%", observacoes: "RETRABALHO FIO CURTO" },
-                            "REDE PROFINET": { status: "0%", observacoes: "" },
-                            "REDE CAN": { status: "0%", observacoes: "" }
+                try {
+                    const response = await fetch(`https://api.jsonbin.io/v3/b/${config.binId}/latest`, {
+                        headers: {
+                            'X-Master-Key': config.masterKey
                         }
-                    };
-                } else {
-                    // Para outros AGVs, inicializamos com valores padrão
-                    agvData[agvId] = {
-                        geral: {
-                            "ACABAMENTO": { status: "0%", observacoes: "" },
-                            "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                            "ADESIVOS": { status: "0%", observacoes: "" },
-                            "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                            "RASPADORES": { status: "0%", observacoes: "" },
-                            "BATERIA": { status: "0%", observacoes: "" }
-                        },
-                        mecanico: {
-                            "CJ DE TRAÇÃO": { status: "0%", observacoes: "" },
-                            "RODIZIO": { status: "0%", observacoes: "" },
-                            "CJ DE APOIO CHASSIS CHIFRE": { status: "0%", observacoes: "" },
-                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
-                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
-                            "TAMPA DE ACABAMENTO": { status: "0%", observacoes: "" }
-                        },
-                        eletrico: {
-                            "CJ TRAÇÃO": { status: "0%", observacoes: "" },
-                            "PAINEL DIANTEIRO": { status: "0%", observacoes: "" },
-                            "PAINEL TRASEIRO": { status: "0%", observacoes: "" },
-                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
-                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
-                            "POTENCIA": { status: "0%", observacoes: "" },
-                            "CHICOTE": { status: "0%", observacoes: "" },
-                            "REDE PROFINET": { status: "0%", observacoes: "" },
-                            "REDE CAN": { status: "0%", observacoes: "" }
-                        }
-                    };
+                    });
+                    
+                    if (response.ok) {
+                        // Conexão bem-sucedida
+                        jsonBinConfig.binId = config.binId;
+                        jsonBinConfig.masterKey = config.masterKey;
+                        
+                        // Salvar configuração bem-sucedida
+                        localStorage.setItem('jsonBinConfig', JSON.stringify(jsonBinConfig));
+                        
+                        // Carregar dados
+                        const data = await response.json();
+                        agvData = data.record;
+                        renderAGVCards();
+                        updateLastUpdate();
+                        
+                        updateConnectionStatus('✅ Conectado à base de dados com sucesso!', 'success');
+                        showLoading(false);
+                        return true; // Saia do loop após sucesso
+                    }
+                } catch (error) {
+                    console.log(`Falha na configuração:`, error.message);
                 }
             }
             
-            // Carrega dados salvos do localStorage, se existirem
-            loadFromLocalStorage();
+            // Se nenhuma configuração automática funcionou
+            updateConnectionStatus('❌ Não foi possível conectar à base de dados.', 'error');
+            showLoading(false);
+            return false;
+        }
+
+        // Carregar configuração salva
+        function loadConfig() {
+            const savedConfig = localStorage.getItem('jsonBinConfig');
+            if (savedConfig) {
+                jsonBinConfig = JSON.parse(savedConfig);
+                
+                // Se já tem configuração, tenta carregar os dados
+                if (jsonBinConfig.binId && jsonBinConfig.masterKey) {
+                    loadFromJSONBin();
+                } else {
+                    // Tenta conexão automática se não houver configuração salva
+                    autoConnect();
+                }
+            } else {
+                // Tenta conexão automática se não houver configuração salva
+                autoConnect();
+            }
+        }
+
+        // Carrega dados do JSONBin
+        async function loadFromJSONBin() {
+            if (!jsonBinConfig.binId || !jsonBinConfig.masterKey) {
+                updateConnectionStatus('❌ Erro na configuração da conexão', 'error');
+                return;
+            }
+
+            updateConnectionStatus('📥 Carregando dados da base...', 'info');
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${jsonBinConfig.binId}/latest`, {
+                    headers: {
+                        'X-Master-Key': jsonBinConfig.masterKey
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                agvData = data.record;
+                renderAGVCards();
+                updateLastUpdate();
+                updateConnectionStatus('✅ Conectado à base de dados com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                updateConnectionStatus('❌ Erro ao conectar com a base de dados', 'error');
+            } finally {
+                showLoading(false);
+            }
         }
         
-        // Calcula o progresso geral baseado no status mecânico, elétrico e dados gerais
+        // Salva dados no JSONBin
+        async function saveToJSONBin() {
+            if (!jsonBinConfig.binId || !jsonBinConfig.masterKey) {
+                showToast('❌ Erro de conexão com a base de dados!', 'error');
+                return false;
+            }
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${jsonBinConfig.binId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': jsonBinConfig.masterKey
+                    },
+                    body: JSON.stringify(agvData)
+                });
+                
+                const result = await response.json();
+                
+                // Verificar se a resposta foi bem-sucedida
+                if (response.ok && result.metadata) {
+                    updateLastUpdate();
+                    return true;
+                } else {
+                    console.error('Erro ao salvar dados:', result);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Erro ao salvar dados:', error);
+                return false;
+            }
+        }
+        
+        // Atualiza data da última atualização
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                `⏰ Última atualização: ${now.toLocaleString('pt-BR')}`;
+        }
+        
+        // Mostra/oculta indicador de carregamento
+        function showLoading(show) {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            
+            if (show) {
+                loadingIndicator.style.display = 'inline-block';
+            } else {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+        
+        // Calcula o progresso geral
         function calculateOverallProgress(agvId) {
             const mecanico = agvData[agvId].mecanico;
             const eletrico = agvData[agvId].eletrico;
@@ -565,6 +734,40 @@
             
             for (let i = 1; i <= 12; i++) {
                 const agvId = `AGV${i.toString().padStart(2, '0')}`;
+                
+                // Se não existir dados para este AGV, cria estrutura padrão
+                if (!agvData[agvId]) {
+                    agvData[agvId] = {
+                        geral: {
+                            "ACABAMENTO": { status: "0%", observacoes: "" },
+                            "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "ADESIVOS": { status: "0%", observacoes: "" },
+                            "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
+                            "RASPADORES": { status: "0%", observacoes: "" },
+                            "BATERIA": { status: "0%", observacoes: "" }
+                        },
+                        mecanico: {
+                            "CJ DE TRAÇÃO": { status: "0%", observacoes: "" },
+                            "RODIZIO": { status: "0%", observacoes: "" },
+                            "CJ DE APOIO CHASSIS CHIFRE": { status: "0%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA DE ACABAMENTO": { status: "0%", observacoes: "" }
+                        },
+                        eletrico: {
+                            "CJ TRAÇÃO": { status: "0%", observacoes: "" },
+                            "PAINEL DIANTEIRO": { status: "0%", observacoes: "" },
+                            "PAINEL TRASEIRO": { status: "0%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
+                            "POTENCIA": { status: "0%", observacoes: "" },
+                            "CHICOTE": { status: "0%", observacoes: "" },
+                            "REDE PROFINET": { status: "0%", observacoes: "" },
+                            "REDE CAN": { status: "0%", observacoes: "" }
+                        }
+                    };
+                }
+                
                 const progress = calculateOverallProgress(agvId);
                 
                 let statusClass = 'status-not-started';
@@ -588,9 +791,9 @@
                             <div class="progress-fill" style="width: ${progress}%"></div>
                         </div>
                         <div class="status-details">
-                            <div><strong>Mecânico:</strong> ${getMecanicoSummary(agvId)}</div>
-                            <div><strong>Elétrico:</strong> ${getEletricoSummary(agvId)}</div>
-                            <div><strong>Dados Gerais:</strong> ${getGeralSummary(agvId)}</div>
+                            <div><strong>🔧 Mecânico:</strong> ${getMecanicoSummary(agvId)}</div>
+                            <div><strong>⚡ Elétrico:</strong> ${getEletricoSummary(agvId)}</div>
+                            <div><strong>🎯 Dados Gerais:</strong> ${getGeralSummary(agvId)}</div>
                         </div>
                     </div>
                 `;
@@ -719,9 +922,9 @@
         }
         
         // Salva as alterações feitas no modal
-        function saveChanges() {
+        async function saveChanges() {
             if (!isAuthenticated) {
-                alert("Você precisa estar autenticado para salvar alterações.");
+                showToast("❌ Você precisa estar autenticado para salvar alterações.", 'error');
                 return;
             }
             
@@ -740,50 +943,20 @@
                 }
             });
             
-            // Salva no localStorage
-            saveToLocalStorage();
+            // Salva no JSONBin
+            const saved = await saveToJSONBin();
             
-            // Atualiza a exibição
-            renderAGVCards();
-            
-            // Fecha o modal
-            closeModal();
-            
-            // Exibe mensagem de confirmação
-            alert(`Alterações salvas para ${currentAgv}`);
-        }
-        
-        // Salva dados no localStorage
-        function saveToLocalStorage() {
-            localStorage.setItem('agvData', JSON.stringify(agvData));
-        }
-        
-        // Carrega dados do localStorage
-        function loadFromLocalStorage() {
-            const savedData = localStorage.getItem('agvData');
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
+            if (saved) {
+                // Atualiza a exibição
+                renderAGVCards();
                 
-                // Para cada AGV, garante que a estrutura de dados gerais exista
-                for (let i = 1; i <= 12; i++) {
-                    const agvId = `AGV${i.toString().padStart(2, '0')}`;
-                    
-                    if (parsedData[agvId]) {
-                        // Se não existir a estrutura de dados gerais, cria
-                        if (!parsedData[agvId].geral) {
-                            parsedData[agvId].geral = {
-                                "ACABAMENTO": { status: "0%", observacoes: "" },
-                                "INDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                                "ADESIVOS": { status: "0%", observacoes: "" },
-                                "PLACA DE IDENTIFICAÇÃO": { status: "0%", observacoes: "" },
-                                "RASPADORES": { status: "0%", observacoes: "" },
-                                "BATERIA": { status: "0%", observacoes: "" }
-                            };
-                        }
-                    }
-                }
+                // Fecha o modal
+                closeModal();
                 
-                agvData = parsedData;
+                // Exibe mensagem de confirmação
+                showToast(`✅ Alterações salvas para ${currentAgv}`);
+            } else {
+                showToast('❌ Erro ao salvar as alterações no servidor.', 'error');
             }
         }
         
@@ -793,13 +966,13 @@
             const loginBtn = document.getElementById('loginBtn');
             
             if (isAuthenticated) {
-                authStatus.textContent = "Autenticado";
+                authStatus.textContent = "🟢 Autenticado";
                 authStatus.style.color = "var(--success-color)";
-                loginBtn.textContent = "Logout";
+                loginBtn.textContent = "🚪 Logout";
             } else {
-                authStatus.textContent = "Não autenticado";
+                authStatus.textContent = "🔴 Não autenticado";
                 authStatus.style.color = "var(--danger-color)";
-                loginBtn.textContent = "Login";
+                loginBtn.textContent = "🔐 Login";
             }
         }
         
@@ -851,10 +1024,24 @@
             }
         }
         
+        // Função para gerar opções de porcentagem
+        function generatePercentageOptions(currentValue) {
+            const percentages = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"];
+            let options = '';
+            
+            percentages.forEach(p => {
+                const selected = p === currentValue ? 'selected' : '';
+                options += `<option value="${p}" ${selected}>${p}</option>`;
+            });
+            
+            return options;
+        }
+        
         // Inicialização da aplicação
         document.addEventListener('DOMContentLoaded', () => {
-            initializeData();
-            renderAGVCards();
+            // Tenta carregar configuração salva e conectar automaticamente
+            loadConfig();
+            
             updateAuthUI();
             
             // Event listeners
