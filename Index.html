@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status dos AGVs</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            position: relative;
+        }
+         .header-logo {
+            max-width: 200px;
+            height: auto;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+            /* Garante que a imagem mantenha suas proporções */
+            object-fit: contain;
+            /* Torna a imagem responsiva */
+            width: 100%;
+            height: auto;
+        }
+        .header-text {
+            flex: 1;
+            text-align: center;
+            min-width: 300px; /* Garante que o texto não fique muito comprimido */
+        }        
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .auth-section {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .auth-status {
+            font-size: 0.9rem;
+            color: var(--dark-color);
+        }
+        
+        .btn-auth {
+            padding: 5px 10px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .btn-auth:hover {
+            background-color: #2980b9;
+        }
+        
+        .agv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .agv-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .agv-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .agv-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .agv-status {
+            padding: 15px;
+        }
+        
+        .status-overview {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: var(--secondary-color);
+        }
+        
+        .status-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .status-details div {
+            margin-bottom: 5px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 50px auto;
+            width: 90%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            animation: modalFade 0.3s;
+        }
+        
+        @keyframes modalFade {
+            from { opacity: 0; transform: translateY(-50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .status-section {
+            margin-bottom: 25px;
+        }
+        
+        .status-section h3 {
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        input[type="text"], input[type="password"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #219653;
+        }
+        
+        .modal-footer {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-completed {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .status-in-progress {
+            background-color: var(--warning-color);
+            color: white;
+        }
+        
+        .status-not-started {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .auth-modal {
+            max-width: 400px;
+        }
+        
+        .auth-form {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .error-message {
+            color: var(--danger-color);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+        <div class="header-container">
+        <img src="Logo Selettra.png" alt="Selettra Logo" class="header-logo">
+        <div class="header-text">             
+            <h1>Sistema de Monitoramento de AGVs</h1>
+            <p>Status atualizado dos AGV's</p>
+        </div>
+        </div>
+            <div class="auth-section">
+                <span class="auth-status" id="authStatus">Não autenticado</span>
+                <button class="btn-auth" id="loginBtn">Login</button>
+            </div>
+        </header>
+        
+        <div class="agv-grid" id="agvGrid">
+            <!-- Os cards dos AGVs serão gerados dinamicamente aqui -->
+        </div>
+    </div>
+    
+    <!-- Modal para exibir e editar detalhes do AGV -->
+    <div class="modal" id="agvModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Detalhes do AGV</h2>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="status-section">
+                    <h3>Status Mecânico</h3>
+                    <table id="mecanicoTable">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Status (%)</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Conteúdo será preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="status-section">
+                    <h3>Status Elétrico</h3>
+                    <table id="eletricoTable">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Status</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Conteúdo será preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveChanges">Salvar Alterações</button>
+                <button class="btn" id="cancelChanges">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de autenticação -->
+    <div class="modal" id="authModal">
+        <div class="modal-content auth-modal">
+            <div class="modal-header">
+                <h2>Autenticação</h2>
+                <button class="close-btn" id="closeAuthModal">&times;</button>
+            </div>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label for="password">Senha:</label>
+                    <input type="password" id="password" placeholder="Digite a senha">
+                    <div class="error-message" id="authError">Senha incorreta. Tente novamente.</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="confirmAuth">Confirmar</button>
+                    <button class="btn" id="cancelAuth">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados iniciais baseados no relatório fornecido
+        let agvData = {};
+        let isAuthenticated = false;
+        const CORRECT_PASSWORD = "fab@123";
+        
+        // Função para gerar opções de porcentagem
+        function generatePercentageOptions(currentValue) {
+            const percentages = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"];
+            let options = '';
+            
+            percentages.forEach(p => {
+                const selected = p === currentValue ? 'selected' : '';
+                options += `<option value="${p}" ${selected}>${p}</option>`;
+            });
+            
+            return options;
+        }
+        
+        // Inicializa os dados para todos os AGVs (01 a 12)
+        function initializeData() {
+            for (let i = 1; i <= 12; i++) {
+                const agvId = `AGV${i.toString().padStart(2, '0')}`;
+                
+                // Para AGV04, usamos os dados do relatório corrigidos
+                if (i === 4) {
+                    agvData[agvId] = {
+                        mecanico: {
+                            "CJ DE TRAÇÃO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
+                            "RODIZIO": { status: "95%", observacoes: "MARCAR PARAFUSOS" },
+                            "CJ DE APOIO CHASSIS CHIFRE": { status: "0%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "COLOCADA SEM PINTAR" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "COLOCADA SEM PINTAR" },
+                            "TAMPA DE ACABAMENTO": { status: "0%", observacoes: "" }
+                        },
+                        eletrico: {
+                            "CJ TRAÇÃO": { status: "0%", observacoes: "" },
+                            "PAINEL DIANTEIRO": { status: "70%", observacoes: "" },
+                            "PAINEL TRASEIRO": { status: "100%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "60%", observacoes: "" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
+                            "POTENCIA": { status: "100%", observacoes: "" },
+                            "CHICOTE": { status: "90%", observacoes: "RETRABALHO FIO CURTO" },
+                            "REDE PROFINET": { status: "0%", observacoes: "" },
+                            "REDE CAN": { status: "0%", observacoes: "" }
+                        }
+                    };
+                } else {
+                    // Para outros AGVs, inicializamos com valores padrão
+                    agvData[agvId] = {
+                        mecanico: {
+                            "CJ DE TRAÇÃO": { status: "0%", observacoes: "" },
+                            "RODIZIO": { status: "0%", observacoes: "" },
+                            "CJ DE APOIO CHASSIS CHIFRE": { status: "0%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA DE ACABAMENTO": { status: "0%", observacoes: "" }
+                        },
+                        eletrico: {
+                            "CJ TRAÇÃO": { status: "0%", observacoes: "" },
+                            "PAINEL DIANTEIRO": { status: "0%", observacoes: "" },
+                            "PAINEL TRASEIRO": { status: "0%", observacoes: "" },
+                            "TAMPA DIANTEIRA": { status: "0%", observacoes: "" },
+                            "TAMPA TRASEIRA": { status: "0%", observacoes: "" },
+                            "POTENCIA": { status: "0%", observacoes: "" },
+                            "CHICOTE": { status: "0%", observacoes: "" },
+                            "REDE PROFINET": { status: "0%", observacoes: "" },
+                            "REDE CAN": { status: "0%", observacoes: "" }
+                        }
+                    };
+                }
+            }
+            
+            // Carrega dados salvos do localStorage, se existirem
+            loadFromLocalStorage();
+        }
+        
+        // Calcula o progresso geral baseado no status mecânico
+        function calculateOverallProgress(agvId) {
+            const mecanico = agvData[agvId].mecanico;
+            let total = 0;
+            let count = 0;
+            
+            for (const item in mecanico) {
+                // Converte "95%" para 95
+                const value = parseInt(mecanico[item].status);
+                total += value;
+                count++;
+            }
+            
+            return count > 0 ? Math.round(total / count) : 0;
+        }
+        
+        // Gera os cards dos AGVs
+        function renderAGVCards() {
+            const grid = document.getElementById('agvGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 1; i <= 12; i++) {
+                const agvId = `AGV${i.toString().padStart(2, '0')}`;
+                const progress = calculateOverallProgress(agvId);
+                
+                let statusClass = 'status-not-started';
+                if (progress >= 80) statusClass = 'status-completed';
+                else if (progress > 0) statusClass = 'status-in-progress';
+                
+                const card = document.createElement('div');
+                card.className = 'agv-card';
+                card.setAttribute('data-agv', agvId);
+                
+                card.innerHTML = `
+                    <div class="agv-header">
+                        <h3>${agvId}</h3>
+                    </div>
+                    <div class="agv-status">
+                        <div class="status-overview">
+                            <span>Progresso Geral:</span>
+                            <span class="status-badge ${statusClass}">${progress}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="status-details">
+                            <div><strong>Mecânico:</strong> ${getMecanicoSummary(agvId)}</div>
+                            <div><strong>Elétrico:</strong> ${getEletricoSummary(agvId)}</div>
+                        </div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => openModal(agvId));
+                grid.appendChild(card);
+            }
+        }
+        
+        // Retorna um resumo do status mecânico
+        function getMecanicoSummary(agvId) {
+            const mecanico = agvData[agvId].mecanico;
+            let completed = 0;
+            let total = 0;
+            
+            for (const item in mecanico) {
+                if (mecanico[item].status === "100%") completed++;
+                total++;
+            }
+            
+            return `${completed}/${total} concluídos`;
+        }
+        
+        // Retorna um resumo do status elétrico
+        function getEletricoSummary(agvId) {
+            const eletrico = agvData[agvId].eletrico;
+            let completed = 0;
+            let total = 0;
+            
+            for (const item in eletrico) {
+                if (eletrico[item].status === "100%") completed++;
+                total++;
+            }
+            
+            return `${completed}/${total} concluídos`;
+        }
+        
+        // Abre o modal com os detalhes do AGV
+        function openModal(agvId) {
+            const modal = document.getElementById('agvModal');
+            const title = document.getElementById('modalTitle');
+            const mecanicoTable = document.getElementById('mecanicoTable').querySelector('tbody');
+            const eletricoTable = document.getElementById('eletricoTable').querySelector('tbody');
+            
+            title.textContent = `Detalhes do ${agvId}`;
+            
+            // Preenche a tabela mecânica com selects
+            mecanicoTable.innerHTML = '';
+            for (const item in agvData[agvId].mecanico) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item}</td>
+                    <td>
+                        <select data-agv="${agvId}" data-type="mecanico" data-item="${item}" data-field="status" ${!isAuthenticated ? 'disabled' : ''}>
+                            ${generatePercentageOptions(agvData[agvId].mecanico[item].status)}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" value="${agvData[agvId].mecanico[item].observacoes}" data-agv="${agvId}" data-type="mecanico" data-item="${item}" data-field="observacoes" ${!isAuthenticated ? 'disabled' : ''}>
+                    </td>
+                `;
+                mecanicoTable.appendChild(row);
+            }
+            
+            // Preenche a tabela elétrica com selects
+            eletricoTable.innerHTML = '';
+            for (const item in agvData[agvId].eletrico) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item}</td>
+                    <td>
+                        <select data-agv="${agvId}" data-type="eletrico" data-item="${item}" data-field="status" ${!isAuthenticated ? 'disabled' : ''}>
+                            ${generatePercentageOptions(agvData[agvId].eletrico[item].status)}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" value="${agvData[agvId].eletrico[item].observacoes}" data-agv="${agvId}" data-type="eletrico" data-item="${item}" data-field="observacoes" ${!isAuthenticated ? 'disabled' : ''}>
+                    </td>
+                `;
+                eletricoTable.appendChild(row);
+            }
+            
+            // Desabilita o botão de salvar se não estiver autenticado
+            document.getElementById('saveChanges').disabled = !isAuthenticated;
+            
+            modal.style.display = 'block';
+        }
+        
+        // Fecha o modal
+        function closeModal() {
+            const modal = document.getElementById('agvModal');
+            modal.style.display = 'none';
+        }
+        
+        // Salva as alterações feitas no modal
+        function saveChanges() {
+            if (!isAuthenticated) {
+                alert("Você precisa estar autenticado para salvar alterações.");
+                return;
+            }
+            
+            const inputs = document.querySelectorAll('#agvModal input, #agvModal select');
+            let currentAgv = null;
+            
+            inputs.forEach(input => {
+                const agvId = input.getAttribute('data-agv');
+                const type = input.getAttribute('data-type');
+                const item = input.getAttribute('data-item');
+                const field = input.getAttribute('data-field');
+                
+                if (agvId && type && item && field) {
+                    agvData[agvId][type][item][field] = input.value;
+                    currentAgv = agvId;
+                }
+            });
+            
+            // Salva no localStorage
+            saveToLocalStorage();
+            
+            // Atualiza a exibição
+            renderAGVCards();
+            
+            // Fecha o modal
+            closeModal();
+            
+            // Exibe mensagem de confirmação
+            alert(`Alterações salvas para ${currentAgv}`);
+        }
+        
+        // Salva dados no localStorage
+        function saveToLocalStorage() {
+            localStorage.setItem('agvData', JSON.stringify(agvData));
+        }
+        
+        // Carrega dados do localStorage
+        function loadFromLocalStorage() {
+            const savedData = localStorage.getItem('agvData');
+            if (savedData) {
+                agvData = JSON.parse(savedData);
+            }
+        }
+        
+        // Atualiza a interface com o status de autenticação
+        function updateAuthUI() {
+            const authStatus = document.getElementById('authStatus');
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (isAuthenticated) {
+                authStatus.textContent = "Autenticado";
+                authStatus.style.color = "var(--success-color)";
+                loginBtn.textContent = "Logout";
+            } else {
+                authStatus.textContent = "Não autenticado";
+                authStatus.style.color = "var(--danger-color)";
+                loginBtn.textContent = "Login";
+            }
+        }
+        
+        // Abre o modal de autenticação
+        function openAuthModal() {
+            const modal = document.getElementById('authModal');
+            document.getElementById('password').value = '';
+            document.getElementById('authError').style.display = 'none';
+            modal.style.display = 'block';
+        }
+        
+        // Fecha o modal de autenticação
+        function closeAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.style.display = 'none';
+        }
+        
+        // Processa a autenticação
+        function processAuth() {
+            const password = document.getElementById('password').value;
+            const authError = document.getElementById('authError');
+            
+            if (password === CORRECT_PASSWORD) {
+                isAuthenticated = true;
+                updateAuthUI();
+                closeAuthModal();
+                
+                // Se o modal do AGV estiver aberto, habilita os campos
+                if (document.getElementById('agvModal').style.display === 'block') {
+                    const inputs = document.querySelectorAll('#agvModal input, #agvModal select');
+                    inputs.forEach(input => input.disabled = false);
+                    document.getElementById('saveChanges').disabled = false;
+                }
+            } else {
+                authError.style.display = 'block';
+            }
+        }
+        
+        // Faz logout
+        function logout() {
+            isAuthenticated = false;
+            updateAuthUI();
+            
+            // Se o modal do AGV estiver aberto, desabilita os campos
+            if (document.getElementById('agvModal').style.display === 'block') {
+                const inputs = document.querySelectorAll('#agvModal input, #agvModal select');
+                inputs.forEach(input => input.disabled = true);
+                document.getElementById('saveChanges').disabled = true;
+            }
+        }
+        
+        // Inicialização da aplicação
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeData();
+            renderAGVCards();
+            updateAuthUI();
+            
+            // Event listeners
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            document.getElementById('cancelChanges').addEventListener('click', closeModal);
+            document.getElementById('saveChanges').addEventListener('click', saveChanges);
+            
+            // Event listeners de autenticação
+            document.getElementById('loginBtn').addEventListener('click', () => {
+                if (isAuthenticated) {
+                    logout();
+                } else {
+                    openAuthModal();
+                }
+            });
+            
+            document.getElementById('closeAuthModal').addEventListener('click', closeAuthModal);
+            document.getElementById('cancelAuth').addEventListener('click', closeAuthModal);
+            document.getElementById('confirmAuth').addEventListener('click', processAuth);
+            
+            // Fecha o modal ao clicar fora dele
+            window.addEventListener('click', (event) => {
+                const agvModal = document.getElementById('agvModal');
+                const authModal = document.getElementById('authModal');
+                
+                if (event.target === agvModal) {
+                    closeModal();
+                }
+                if (event.target === authModal) {
+                    closeAuthModal();
+                }
+            });
+            
+            // Permite enviar o formulário de autenticação com Enter
+            document.getElementById('password').addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    processAuth();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
