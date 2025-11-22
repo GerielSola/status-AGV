@@ -13,6 +13,8 @@
             --danger-color: #e74c3c;
             --light-color: #ecf0f1;
             --dark-color: #34495e;
+            --amber-color: #ff9800;
+            --yellow-color: #ffeb3b;
         }
         
         * {
@@ -50,7 +52,7 @@
             flex-wrap: wrap;
             margin-bottom: 10px;
         }
-
+        
         .header-logo {
             max-width: 200px;
             height: auto;
@@ -61,7 +63,7 @@
             width: 100%;
             height: auto;
         }
-        
+
         .header-text {
             flex: 1;
             text-align: center;
@@ -383,6 +385,43 @@
         .toast.error {
             background-color: var(--danger-color);
         }
+
+        /* Cores para os status de comissionamento - APENAS NA CAIXA DE STATUS */
+        .commissioning-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 10px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .status-ready {
+            background-color: var(--yellow-color);
+            color: #333;
+        }
+
+        .status-commissioning {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .status-testing {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .status-production {
+            background-color: var(--amber-color);
+            color: white;
+        }
+
+        .status-painting {
+            background-color: var(--amber-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -441,6 +480,16 @@
                             <!-- Conteúdo será preenchido dinamicamente -->
                         </tbody>
                     </table>
+                    <div class="form-group">
+                        <label for="commissioningStatus">Status de Comissionamento:</label>
+                        <select id="commissioningStatus" ${!isAuthenticated ? 'disabled' : ''}>
+                            <option value="Pronto para comissionar">Pronto para comissionar</option>
+                            <option value="Em comissionamento">Em comissionamento</option>
+                            <option value="Em teste">Em teste</option>
+                            <option value="Em Produção">Em Produção</option>
+                            <option value="Pintura">Pintura</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="status-section">
@@ -554,6 +603,24 @@
                 statusElement.style.color = 'blue';
                 statusElement.parentElement.style.background = '#e3f2fd';
                 statusElement.parentElement.style.borderColor = '#bbdefb';
+            }
+        }
+
+        // Função para obter a classe CSS baseada no status de comissionamento
+        function getCommissioningStatusClass(status) {
+            switch(status) {
+                case 'Pronto para comissionar':
+                    return 'status-ready';
+                case 'Em comissionamento':
+                    return 'status-commissioning';
+                case 'Em teste':
+                    return 'status-testing';
+                case 'Em Produção':
+                    return 'status-production';
+                case 'Pintura':
+                    return 'status-painting';
+                default:
+                    return 'status-ready';
             }
         }
 
@@ -776,15 +843,18 @@
                             "CHICOTE": { status: "0%", observacoes: "" },
                             "REDE PROFINET": { status: "0%", observacoes: "" },
                             "REDE CAN": { status: "0%", observacoes: "" }
-                        }
+                        },
+                        commissioningStatus: "Pronto para comissionar"
                     };
                 }
                 
                 const progress = calculateOverallProgress(agvId);
+                const commissioningStatus = agvData[agvId].commissioningStatus || "Pronto para comissionar";
+                const statusClass = getCommissioningStatusClass(commissioningStatus);
                 
-                let statusClass = 'status-not-started';
-                if (progress >= 80) statusClass = 'status-completed';
-                else if (progress > 0) statusClass = 'status-in-progress';
+                let progressStatusClass = 'status-not-started';
+                if (progress >= 80) progressStatusClass = 'status-completed';
+                else if (progress > 0) progressStatusClass = 'status-in-progress';
                 
                 const card = document.createElement('div');
                 card.className = 'agv-card';
@@ -797,10 +867,13 @@
                     <div class="agv-status">
                         <div class="status-overview">
                             <span>Progresso Geral:</span>
-                            <span class="status-badge ${statusClass}">${progress}%</span>
+                            <span class="status-badge ${progressStatusClass}">${progress}%</span>
                         </div>
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="commissioning-status ${statusClass}">
+                            ${commissioningStatus}
                         </div>
                         <div class="status-details">
                             <div><strong>🔧 Mecânico:</strong> ${getMecanicoSummary(agvId)}</div>
@@ -864,8 +937,13 @@
             const geralTable = document.getElementById('geralTable').querySelector('tbody');
             const mecanicoTable = document.getElementById('mecanicoTable').querySelector('tbody');
             const eletricoTable = document.getElementById('eletricoTable').querySelector('tbody');
+            const commissioningSelect = document.getElementById('commissioningStatus');
             
             title.textContent = `Detalhes do ${agvId}`;
+            
+            // Define o valor do status de comissionamento
+            commissioningSelect.value = agvData[agvId].commissioningStatus || "Pronto para comissionar";
+            commissioningSelect.disabled = !isAuthenticated;
             
             // Preenche a tabela de dados gerais com selects
             geralTable.innerHTML = '';
@@ -954,6 +1032,12 @@
                     currentAgv = agvId;
                 }
             });
+            
+            // Salva o status de comissionamento
+            const commissioningStatus = document.getElementById('commissioningStatus').value;
+            if (currentAgv) {
+                agvData[currentAgv].commissioningStatus = commissioningStatus;
+            }
             
             // Salva no JSONBin
             const saved = await saveToJSONBin();
