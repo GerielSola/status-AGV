@@ -57,9 +57,7 @@
             max-width: 200px;
             height: auto;
             filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
-            /* Garante que a imagem mantenha suas proporções */
             object-fit: contain;
-            /* Torna a imagem responsiva */
             width: 100%;
             height: auto;
         }
@@ -451,8 +449,8 @@
         }
 
         .missing-items-btn {
-            width: 30px;
-            height: 30px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             border: none;
             display: flex;
@@ -462,6 +460,7 @@
             font-size: 0.9rem;
             font-weight: bold;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .missing-items-btn.no-items {
@@ -473,6 +472,29 @@
             background-color: var(--danger-color);
             color: white;
             animation: pulse 2s infinite;
+        }
+
+        .missing-items-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .missing-items-btn:hover::after {
+            opacity: 1;
+            visibility: visible;
         }
 
         @keyframes pulse {
@@ -1012,7 +1034,8 @@
                 const missingItems = agvData[agvId].missingItems || [];
                 const hasMissingItems = missingItems.length > 0;
                 const missingItemsBtnClass = hasMissingItems ? 'has-items' : 'no-items';
-                const missingItemsBtnText = hasMissingItems ? '!' : '✓';
+                // Mostra a quantidade de itens faltantes
+                const missingItemsBtnText = hasMissingItems ? missingItems.length : '✓';
                 
                 const card = document.createElement('div');
                 card.className = 'agv-card';
@@ -1056,6 +1079,15 @@
                 
                 // Adiciona evento ao botão de itens faltantes
                 const missingItemsBtn = card.querySelector('.missing-items-btn');
+                
+                // Adiciona o tooltip se houver itens faltantes
+                if (hasMissingItems) {
+                    const itemsText = missingItems.length === 1 ? 
+                        '1 item faltante' : 
+                        `${missingItems.length} itens faltantes`;
+                    missingItemsBtn.setAttribute('data-tooltip', itemsText);
+                }
+                
                 missingItemsBtn.addEventListener('click', (e) => {
                     e.stopPropagation(); // Impede que o clique no botão abra o modal principal
                     openMissingItemsModal(agvId);
