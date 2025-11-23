@@ -117,6 +117,7 @@
             overflow: hidden;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
+            position: relative;
         }
         
         .agv-card:hover {
@@ -422,6 +423,117 @@
             background-color: var(--amber-color);
             color: white;
         }
+
+        .status-rework {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        /* Container do botão de itens faltantes */
+        .missing-items-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .missing-items-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .missing-items-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .missing-items-btn.no-items {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .missing-items-btn.has-items {
+            background-color: var(--danger-color);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Estilos para o modal de itens faltantes */
+        .missing-items-modal .modal-content {
+            max-width: 600px;
+        }
+
+        .missing-item-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .missing-item-input {
+            flex: 1;
+        }
+
+        .missing-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+
+        .missing-items-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .missing-item-row:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -488,6 +600,10 @@
                             <option value="Em teste">Em teste</option>
                             <option value="Em Produção">Em Produção</option>
                             <option value="Pintura">Pintura</option>
+                            <option value="Retorno p/ Retrabalho">Retorno p/ Retrabalho</option>
+                            <option value="Retrabalho Corte/solda">Retrabalho Corte/solda</option>
+                            <option value="Jateamento">Jateamento</option>
+                            <option value="Desmontagem eletrico/Mecanico">Desmontagem eletrico/Mecanico</option>
                         </select>
                     </div>
                 </div>
@@ -552,6 +668,35 @@
         </div>
     </div>
 
+    <!-- Modal de itens faltantes -->
+    <div class="modal missing-items-modal" id="missingItemsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="missingItemsTitle">Itens Faltantes</h2>
+                <button class="close-btn" id="closeMissingItemsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newMissingItem">Adicionar novo item faltante:</label>
+                    <div class="missing-item-row">
+                        <input type="text" id="newMissingItem" placeholder="Descreva o item faltante" class="missing-item-input">
+                        <div class="missing-item-actions">
+                            <button class="btn btn-primary btn-small" id="addMissingItem">➕ Adicionar</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="missing-items-list" id="missingItemsList">
+                    <!-- Itens faltantes serão adicionados aqui dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveMissingItems">💾 Salvar Itens</button>
+                <button class="btn" id="cancelMissingItems">❌ Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast para mensagens -->
     <div class="toast" id="toast"></div>
 
@@ -564,6 +709,7 @@
             binId: '',
             masterKey: ''
         };
+        let currentAgvForMissingItems = null;
 
         // Configurações automáticas pré-definidas
         const AUTO_CONFIGS = [
@@ -619,6 +765,11 @@
                     return 'status-production';
                 case 'Pintura':
                     return 'status-painting';
+                case 'Retorno p/ Retrabalho':
+                case 'Retrabalho Corte/solda':
+                case 'Jateamento':
+                case 'Desmontagem eletrico/Mecanico':
+                    return 'status-rework'; // Todos esses status usarão a cor vermelha
                 default:
                     return 'status-ready';
             }
@@ -844,7 +995,8 @@
                             "REDE PROFINET": { status: "0%", observacoes: "" },
                             "REDE CAN": { status: "0%", observacoes: "" }
                         },
-                        commissioningStatus: "Pronto para comissionar"
+                        commissioningStatus: "Pronto para comissionar",
+                        missingItems: []
                     };
                 }
                 
@@ -856,11 +1008,23 @@
                 if (progress >= 80) progressStatusClass = 'status-completed';
                 else if (progress > 0) progressStatusClass = 'status-in-progress';
                 
+                // Verifica se há itens faltantes
+                const missingItems = agvData[agvId].missingItems || [];
+                const hasMissingItems = missingItems.length > 0;
+                const missingItemsBtnClass = hasMissingItems ? 'has-items' : 'no-items';
+                const missingItemsBtnText = hasMissingItems ? '!' : '✓';
+                
                 const card = document.createElement('div');
                 card.className = 'agv-card';
                 card.setAttribute('data-agv', agvId);
                 
                 card.innerHTML = `
+                    <div class="missing-items-container">
+                        <span class="missing-items-label">Mat.Faltante</span>
+                        <button class="missing-items-btn ${missingItemsBtnClass}" data-agv="${agvId}">
+                            ${missingItemsBtnText}
+                        </button>
+                    </div>
                     <div class="agv-header">
                         <h3>${agvId}</h3>
                     </div>
@@ -883,7 +1047,20 @@
                     </div>
                 `;
                 
-                card.addEventListener('click', () => openModal(agvId));
+                card.addEventListener('click', (e) => {
+                    // Não abrir o modal se o clique foi no container de itens faltantes
+                    if (!e.target.closest('.missing-items-container')) {
+                        openModal(agvId);
+                    }
+                });
+                
+                // Adiciona evento ao botão de itens faltantes
+                const missingItemsBtn = card.querySelector('.missing-items-btn');
+                missingItemsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Impede que o clique no botão abra o modal principal
+                    openMissingItemsModal(agvId);
+                });
+                
                 grid.appendChild(card);
             }
         }
@@ -1056,6 +1233,156 @@
             }
         }
         
+        // Abre o modal de itens faltantes
+        function openMissingItemsModal(agvId) {
+            currentAgvForMissingItems = agvId;
+            const modal = document.getElementById('missingItemsModal');
+            const title = document.getElementById('missingItemsTitle');
+            const itemsList = document.getElementById('missingItemsList');
+            
+            title.textContent = `Itens Faltantes - ${agvId}`;
+            
+            // Limpa a lista
+            itemsList.innerHTML = '';
+            
+            // Obtém os itens faltantes do AGV
+            const missingItems = agvData[agvId].missingItems || [];
+            
+            // Adiciona cada item à lista
+            missingItems.forEach((item, index) => {
+                const itemRow = document.createElement('div');
+                itemRow.className = 'missing-item-row';
+                itemRow.innerHTML = `
+                    <input type="text" value="${item}" class="missing-item-input" data-index="${index}" ${!isAuthenticated ? 'disabled' : ''}>
+                    <div class="missing-item-actions">
+                        <button class="btn btn-warning btn-small move-up-btn" data-index="${index}" ${!isAuthenticated ? 'disabled' : ''}>⬆️</button>
+                        <button class="btn btn-warning btn-small move-down-btn" data-index="${index}" ${!isAuthenticated ? 'disabled' : ''}>⬇️</button>
+                        <button class="btn btn-danger btn-small remove-item-btn" data-index="${index}" ${!isAuthenticated ? 'disabled' : ''}>❌</button>
+                    </div>
+                `;
+                itemsList.appendChild(itemRow);
+            });
+            
+            // Se não há itens, mostra uma mensagem
+            if (missingItems.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'missing-item-row';
+                emptyMessage.style.justifyContent = 'center';
+                emptyMessage.innerHTML = '<span style="color: #666;">Nenhum item faltante registrado</span>';
+                itemsList.appendChild(emptyMessage);
+            }
+            
+            // Desabilita o botão de salvar se não estiver autenticado
+            document.getElementById('saveMissingItems').disabled = !isAuthenticated;
+            document.getElementById('addMissingItem').disabled = !isAuthenticated;
+            document.getElementById('newMissingItem').disabled = !isAuthenticated;
+            
+            modal.style.display = 'block';
+        }
+        
+        // Fecha o modal de itens faltantes
+        function closeMissingItemsModal() {
+            const modal = document.getElementById('missingItemsModal');
+            modal.style.display = 'none';
+            currentAgvForMissingItems = null;
+        }
+        
+        // Adiciona um novo item faltante
+        function addMissingItem() {
+            if (!isAuthenticated) {
+                showToast("❌ Você precisa estar autenticado para adicionar itens.", 'error');
+                return;
+            }
+            
+            const newItemInput = document.getElementById('newMissingItem');
+            const newItem = newItemInput.value.trim();
+            
+            if (newItem) {
+                // Inicializa o array de itens faltantes se não existir
+                if (!agvData[currentAgvForMissingItems].missingItems) {
+                    agvData[currentAgvForMissingItems].missingItems = [];
+                }
+                
+                // Adiciona o novo item
+                agvData[currentAgvForMissingItems].missingItems.push(newItem);
+                
+                // Limpa o campo de entrada
+                newItemInput.value = '';
+                
+                // Atualiza a lista
+                openMissingItemsModal(currentAgvForMissingItems);
+                
+                showToast(`✅ Item adicionado à lista de faltantes do ${currentAgvForMissingItems}`);
+            }
+        }
+        
+        // Remove um item faltante
+        function removeMissingItem(index) {
+            if (!isAuthenticated) {
+                showToast("❌ Você precisa estar autenticado para remover itens.", 'error');
+                return;
+            }
+            
+            agvData[currentAgvForMissingItems].missingItems.splice(index, 1);
+            openMissingItemsModal(currentAgvForMissingItems);
+        }
+        
+        // Move um item para cima na lista
+        function moveMissingItemUp(index) {
+            if (!isAuthenticated || index === 0) return;
+            
+            const items = agvData[currentAgvForMissingItems].missingItems;
+            [items[index], items[index - 1]] = [items[index - 1], items[index]];
+            openMissingItemsModal(currentAgvForMissingItems);
+        }
+        
+        // Move um item para baixo na lista
+        function moveMissingItemDown(index) {
+            if (!isAuthenticated) return;
+            
+            const items = agvData[currentAgvForMissingItems].missingItems;
+            if (index < items.length - 1) {
+                [items[index], items[index + 1]] = [items[index + 1], items[index]];
+                openMissingItemsModal(currentAgvForMissingItems);
+            }
+        }
+        
+        // Salva os itens faltantes
+        async function saveMissingItems() {
+            if (!isAuthenticated) {
+                showToast("❌ Você precisa estar autenticado para salvar itens.", 'error');
+                return;
+            }
+            
+            // Atualiza os itens com os valores dos inputs
+            const itemInputs = document.querySelectorAll('#missingItemsList .missing-item-input');
+            const updatedItems = [];
+            
+            itemInputs.forEach(input => {
+                if (input.value.trim()) {
+                    updatedItems.push(input.value.trim());
+                }
+            });
+            
+            agvData[currentAgvForMissingItems].missingItems = updatedItems;
+            
+            // Salva no JSONBin
+            const saved = await saveToJSONBin();
+            
+            if (saved) {
+                // Atualiza a exibição dos cards
+                renderAGVCards();
+                
+                // Fecha o modal
+                closeMissingItemsModal();
+                
+                // Exibe mensagem de confirmação
+                showToast(`✅ Itens faltantes salvos para ${currentAgvForMissingItems}`);
+            } else {
+                showToast('❌ Erro ao salvar os itens no servidor.', 'error');
+            }
+        }
+        
         // Atualiza a interface com o status de autenticação
         function updateAuthUI() {
             const authStatus = document.getElementById('authStatus');
@@ -1102,6 +1429,17 @@
                     inputs.forEach(input => input.disabled = false);
                     document.getElementById('saveChanges').disabled = false;
                 }
+                
+                // Se o modal de itens faltantes estiver aberto, habilita os campos
+                if (document.getElementById('missingItemsModal').style.display === 'block') {
+                    const inputs = document.querySelectorAll('#missingItemsModal input, #missingItemsModal button');
+                    inputs.forEach(input => {
+                        if (input.id !== 'cancelMissingItems' && input.id !== 'closeMissingItemsModal') {
+                            input.disabled = false;
+                        }
+                    });
+                    document.getElementById('saveMissingItems').disabled = false;
+                }
             } else {
                 authError.style.display = 'block';
             }
@@ -1117,6 +1455,17 @@
                 const inputs = document.querySelectorAll('#agvModal input, #agvModal select');
                 inputs.forEach(input => input.disabled = true);
                 document.getElementById('saveChanges').disabled = true;
+            }
+            
+            // Se o modal de itens faltantes estiver aberto, desabilita os campos
+            if (document.getElementById('missingItemsModal').style.display === 'block') {
+                const inputs = document.querySelectorAll('#missingItemsModal input, #missingItemsModal button');
+                inputs.forEach(input => {
+                    if (input.id !== 'cancelMissingItems' && input.id !== 'closeMissingItemsModal') {
+                        input.disabled = true;
+                    }
+                });
+                document.getElementById('saveMissingItems').disabled = true;
             }
         }
         
@@ -1158,16 +1507,47 @@
             document.getElementById('cancelAuth').addEventListener('click', closeAuthModal);
             document.getElementById('confirmAuth').addEventListener('click', processAuth);
             
+            // Event listeners para o modal de itens faltantes
+            document.getElementById('closeMissingItemsModal').addEventListener('click', closeMissingItemsModal);
+            document.getElementById('cancelMissingItems').addEventListener('click', closeMissingItemsModal);
+            document.getElementById('addMissingItem').addEventListener('click', addMissingItem);
+            document.getElementById('saveMissingItems').addEventListener('click', saveMissingItems);
+            
+            // Event listener para adicionar item com Enter
+            document.getElementById('newMissingItem').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addMissingItem();
+                }
+            });
+            
+            // Delegation de eventos para os botões dinâmicos da lista de itens
+            document.getElementById('missingItemsList').addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-item-btn')) {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    removeMissingItem(index);
+                } else if (e.target.classList.contains('move-up-btn')) {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    moveMissingItemUp(index);
+                } else if (e.target.classList.contains('move-down-btn')) {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    moveMissingItemDown(index);
+                }
+            });
+            
             // Fecha o modal ao clicar fora dele
             window.addEventListener('click', (event) => {
                 const agvModal = document.getElementById('agvModal');
                 const authModal = document.getElementById('authModal');
+                const missingItemsModal = document.getElementById('missingItemsModal');
                 
                 if (event.target === agvModal) {
                     closeModal();
                 }
                 if (event.target === authModal) {
                     closeAuthModal();
+                }
+                if (event.target === missingItemsModal) {
+                    closeMissingItemsModal();
                 }
             });
             
