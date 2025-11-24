@@ -15,6 +15,7 @@
             --dark-color: #34495e;
             --amber-color: #ff9800;
             --yellow-color: #ffeb3b;
+            --light-red: #ff6b6b;
         }
         
         * {
@@ -403,8 +404,8 @@
         }
 
         .status-commissioning {
-            background-color: var(--success-color);
-            color: white;
+            background-color: var(--yellow-color);
+            color: #333;
         }
 
         .status-testing {
@@ -424,6 +425,31 @@
 
         .status-rework {
             background-color: var(--danger-color);
+            color: white;
+        }
+
+        .status-rework-light {
+            background-color: var(--light-red);
+            color: white;
+        }
+
+        .status-jateamento {
+            background-color: var(--yellow-color);
+            color: #333;
+        }
+
+        .status-desmontagem {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .status-aguardando-producao {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .status-aguardando-pintura {
+            background-color: var(--light-red);
             color: white;
         }
 
@@ -626,6 +652,8 @@
                             <option value="Retrabalho Corte/solda">Retrabalho Corte/solda</option>
                             <option value="Jateamento">Jateamento</option>
                             <option value="Desmontagem eletrico/Mecanico">Desmontagem eletrico/Mecanico</option>
+                            <option value="Aguardando Produção">Aguardando Produção</option>
+                            <option value="Aguardando envio Pintura">Aguardando envio Pintura</option>
                         </select>
                     </div>
                 </div>
@@ -788,10 +816,17 @@
                 case 'Pintura':
                     return 'status-painting';
                 case 'Retorno p/ Retrabalho':
+                    return 'status-rework';
                 case 'Retrabalho Corte/solda':
+                    return 'status-rework-light';
                 case 'Jateamento':
+                    return 'status-jateamento';
                 case 'Desmontagem eletrico/Mecanico':
-                    return 'status-rework'; // Todos esses status usarão a cor vermelha
+                    return 'status-desmontagem';
+                case 'Aguardando Produção':
+                    return 'status-aguardando-producao';
+                case 'Aguardando envio Pintura':
+                    return 'status-aguardando-pintura';
                 default:
                     return 'status-ready';
             }
